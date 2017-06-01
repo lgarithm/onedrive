@@ -27,7 +27,9 @@ func SaveToken(bs []byte) error {
 	if err := json.Unmarshal(bs, &token); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(tokenFile(), bs, os.ModePerm)
+	filename := tokenFile()
+	os.MkdirAll(path.Dir(filename), os.ModePerm)
+	return ioutil.WriteFile(filename, bs, os.ModePerm)
 }
 
 func tokenFile() string {
