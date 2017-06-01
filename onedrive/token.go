@@ -21,7 +21,8 @@ func loadToken() (*oauth2.Token, error) {
 	return &token, nil
 }
 
-func saveToken(bs []byte) error {
+// SaveToken saves token file to default location
+func SaveToken(bs []byte) error {
 	var token oauth2.Token
 	if err := json.Unmarshal(bs, &token); err != nil {
 		return err
