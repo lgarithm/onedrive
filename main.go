@@ -3,9 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/lgarithm/onedrive/onedrive"
+)
+
+var (
+	remotePath = flag.String("path", "upload", "remote folder")
 )
 
 func main() {
@@ -32,9 +37,10 @@ func main() {
 		if err != nil {
 			glog.Exit(err)
 		}
+		dirs := strings.Split(*remotePath, "/")
 		for _, file := range args[1:] {
-			glog.Infof("Uploading %q", file)
-			res, err := cli.Upload(file)
+			glog.Infof("Uploading %q to %s", file, *remotePath)
+			res, err := cli.Upload(file, dirs...)
 			if err != nil {
 				glog.Exit(err)
 			}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +12,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 	"golang.org/x/oauth2"
@@ -20,10 +20,6 @@ import (
 
 const (
 	endpoint = `https://graph.microsoft.com/v1.0/me/drive`
-)
-
-var (
-	remotePath = flag.String("path", "upload", "remote folder")
 )
 
 // Client is a client for https://onedrive.live.com
@@ -50,7 +46,7 @@ func New() (*Client, error) {
 }
 
 // Upload uploads a file
-func (c Client) Upload(localfile string) (*Item, error) {
+func (c Client) Upload(localfile string, dirs ...string) (*Item, error) {
 	const limit = 4 * 1024 * 1024
 	info, err := os.Stat(localfile)
 	if err != nil {
@@ -59,7 +55,7 @@ func (c Client) Upload(localfile string) (*Item, error) {
 	if info.Size() > limit {
 		return nil, fmt.Errorf("TODO: support session upload")
 	}
-	return c.simpleUpload(localfile)
+	return c.simpleUpload(localfile, dirs...)
 }
 
 // Download downloads a file
@@ -96,7 +92,7 @@ func (c Client) Download(itemPath ...string) error {
 }
 
 // https://dev.onedrive.com/items/upload_put.htm
-func (c Client) simpleUpload(localfile string) (*Item, error) {
+func (c Client) simpleUpload(localfile string, dirs ...string) (*Item, error) {
 	lf, err := os.Open(localfile)
 	if err != nil {
 		return nil, err
@@ -104,7 +100,7 @@ func (c Client) simpleUpload(localfile string) (*Item, error) {
 	name := path.Base(localfile)
 	u := c.endpoint
 	// PUT /drive/root:/{parent-path}/{filename}:/content
-	u.Path += path.Join("/root:", *remotePath, name+":", "content")
+	u.Path += path.Join("/root:", strings.Join(dirs, "/"), name+":", "content")
 	body := &bytes.Buffer{}
 	io.Copy(body, lf)
 	req, err := http.NewRequest("PUT", u.String(), body)
