@@ -22,6 +22,8 @@ func main() {
 		return
 	}
 	switch args[0] {
+	case "config":
+		onedrive.CreateConfig()
 	case "auth":
 		onedrive.Auth()
 	case "refresh":

@@ -2,7 +2,6 @@ package onedrive
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -23,21 +22,16 @@ const (
 )
 
 var (
-	clientID     = flag.String("client_id", "", "")
-	clientSecret = flag.String("client_secret", "", "")
-
 	scopes = []string{scopeReadWriteAll, scopeOfflineAccess}
 )
 
 func Auth() {
-	if *clientID == "" {
-		glog.Exit("-client_id is required.")
-	}
-	if *clientSecret == "" {
-		glog.Exit("-client_secret is required.")
+	c, err := loadConfig()
+	if err != nil {
+		glog.Exitf("Failed to load config: %v", err)
 	}
 	q := url.Values{}
-	q.Set("client_id", *clientID)
+	q.Set("client_id", c.ClientID)
 	q.Set("redirect_uri", redirectURI)
 	q.Set("response_type", "code")
 	q.Add("scope", strings.Join(scopes, " "))
@@ -46,12 +40,12 @@ func Auth() {
 	fmt.Printf("%s\n", u.String())
 	{
 		u, _ := url.Parse(redirectURI)
-		http.HandleFunc("/", authAction)
+		http.HandleFunc("/", c.authAction)
 		http.ListenAndServe(u.Host, nil)
 	}
 }
 
-func authAction(w http.ResponseWriter, req *http.Request) {
+func (c *Config) authAction(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	for k, vs := range req.Header {
 		for _, v := range vs {
@@ -60,17 +54,17 @@ func authAction(w http.ResponseWriter, req *http.Request) {
 	}
 	code := req.FormValue("code")
 	fmt.Println(code)
-	if err := getAcceccToken(code); err != nil {
+	if err := getAcceccToken(c, code); err != nil {
 		return
 	}
 	fmt.Fprintf(w, "DONE")
 	os.Exit(0)
 }
 
-func getAcceccToken(code string) error {
+func getAcceccToken(c *Config, code string) error {
 	q := url.Values{}
-	q.Set("client_id", *clientID)
-	q.Set("client_secret", *clientSecret)
+	q.Set("client_id", c.ClientID)
+	q.Set("client_secret", c.ClientSecret)
 	q.Set("redirect_uri", redirectURI)
 	q.Set("grant_type", "authorization_code")
 	q.Set("code", code)
@@ -90,8 +84,12 @@ func RefreshAcceccToken() error {
 		return err
 	}
 	q := url.Values{}
-	q.Set("client_id", *clientID)
-	q.Set("client_secret", *clientSecret)
+	c, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("Failed to load config: %v", err)
+	}
+	q.Set("client_id", c.ClientID)
+	q.Set("client_secret", c.ClientSecret)
 	q.Set("redirect_uri", redirectURI)
 	q.Set("grant_type", "refresh_token")
 	q.Set("refresh_token", token.RefreshToken)
