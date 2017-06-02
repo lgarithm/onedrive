@@ -81,7 +81,7 @@ func getAcceccToken(code string) error {
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s\n%s", res.Status, string(bs))
 	}
-	return saveToken(bs)
+	return SaveToken(bs)
 }
 
 func RefreshAcceccToken() error {
@@ -102,7 +102,7 @@ func RefreshAcceccToken() error {
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s\n%s", res.Status, string(bs))
 	}
-	return saveToken(bs)
+	return SaveToken(bs)
 }
 
 func postQuery(api string, query url.Values) (*http.Response, []byte, error) {

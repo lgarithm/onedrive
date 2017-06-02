@@ -21,12 +21,15 @@ func loadToken() (*oauth2.Token, error) {
 	return &token, nil
 }
 
-func saveToken(bs []byte) error {
+// SaveToken saves token file to default location
+func SaveToken(bs []byte) error {
 	var token oauth2.Token
 	if err := json.Unmarshal(bs, &token); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(tokenFile(), bs, os.ModePerm)
+	filename := tokenFile()
+	os.MkdirAll(path.Dir(filename), os.ModePerm)
+	return ioutil.WriteFile(filename, bs, os.ModePerm)
 }
 
 func tokenFile() string {
