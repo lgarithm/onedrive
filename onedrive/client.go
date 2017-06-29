@@ -35,6 +35,11 @@ func New() (*Client, error) {
 		glog.Exit(err)
 	}
 	token, err := loadToken()
+	if !token.Valid() {
+		glog.Info("Refreshing AcceccToken")
+		RefreshAcceccToken()
+		token, err = loadToken()
+	}
 	if err != nil {
 		return nil, err
 	}

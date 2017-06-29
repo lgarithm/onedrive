@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -17,6 +18,15 @@ func loadToken() (*oauth2.Token, error) {
 	var token oauth2.Token
 	if err := json.Unmarshal(bs, &token); err != nil {
 		return nil, err
+	}
+	var tokenExpiry struct {
+		Seconds int `json:"expires_in"`
+	}
+	if err := json.Unmarshal(bs, &tokenExpiry); err == nil {
+		if info, err := os.Stat(tokenFile()); err == nil {
+			const margin = 60
+			token.Expiry = info.ModTime().Add(time.Duration(tokenExpiry.Seconds-margin) * time.Second)
+		}
 	}
 	return &token, nil
 }
