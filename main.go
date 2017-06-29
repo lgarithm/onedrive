@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -57,8 +58,10 @@ func main() {
 		if err != nil {
 			glog.Exit(err)
 		}
+		const format = "%-20s %-16s %-48s %s\n"
+		fmt.Printf(format, "id", "size", "url", "name")
 		for _, i := range is {
-			fmt.Printf("%s\n", i)
+			fmt.Printf(format, i.ID, showSize(i.Size), i.URL, i.Name)
 		}
 	case "download":
 		cli, err := onedrive.New()
@@ -75,4 +78,8 @@ func main() {
 
 func usage() {
 	flag.Usage()
+}
+
+func showSize(size int64) string {
+	return strconv.FormatInt(size, 10)
 }
