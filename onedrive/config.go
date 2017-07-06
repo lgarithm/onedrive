@@ -2,7 +2,6 @@ package onedrive
 
 import (
 	"encoding/json"
-	"flag"
 	"io/ioutil"
 	"os"
 	"path"
@@ -10,26 +9,21 @@ import (
 	"github.com/golang/glog"
 )
 
-var (
-	clientID     = flag.String("client_id", "", "")
-	clientSecret = flag.String("client_secret", "", "")
-)
-
 type Config struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 }
 
-func CreateConfig() {
-	if *clientID == "" {
+func CreateConfig(clientID, clientSecret string) {
+	if clientID == "" {
 		glog.Exit("-client_id is required.")
 	}
-	if *clientSecret == "" {
+	if clientSecret == "" {
 		glog.Exit("-client_secret is required.")
 	}
 	c := Config{
-		ClientID:     *clientID,
-		ClientSecret: *clientSecret,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 	}
 	bs, err := json.MarshalIndent(c, "  ", "")
 	if err != nil {

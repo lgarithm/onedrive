@@ -11,6 +11,9 @@ import (
 )
 
 var (
+	clientID     = flag.String("client_id", "", "")
+	clientSecret = flag.String("client_secret", "", "")
+
 	remotePath = flag.String("path", "upload", "remote folder")
 )
 
@@ -24,7 +27,7 @@ func main() {
 	}
 	switch args[0] {
 	case "config":
-		onedrive.CreateConfig()
+		onedrive.CreateConfig(*clientID, *clientSecret)
 	case "auth":
 		onedrive.Auth()
 	case "refresh":
