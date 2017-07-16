@@ -29,20 +29,25 @@ func main() {
 	switch args[0] {
 	case "config":
 		onedrive.CreateConfig(*clientID, *clientSecret)
+		return
 	case "auth":
 		onedrive.Auth()
+		return
 	case "refresh":
 		if err := onedrive.RefreshAcceccToken(); err != nil {
 			glog.Exit(err)
 		}
+		return
+	}
+	cli, err := onedrive.New()
+	if err != nil {
+		glog.Exit(err)
+	}
+	switch args[0] {
 	case "upload":
 		if len(args) < 2 {
 			usage()
 			return
-		}
-		cli, err := onedrive.New()
-		if err != nil {
-			glog.Exit(err)
 		}
 		dirs := strings.Split(*remotePath, "/")
 		for _, file := range args[1:] {
@@ -54,10 +59,6 @@ func main() {
 			fmt.Println(res)
 		}
 	case "ls":
-		cli, err := onedrive.New()
-		if err != nil {
-			glog.Exit(err)
-		}
 		const format = "%-20s %-16s %-48s %s\n"
 		fmt.Printf(format, "ID", "Size", "URL", "Name")
 		showItems := func(is []onedrive.Item) {
@@ -88,12 +89,14 @@ func main() {
 			}
 		}
 	case "download":
-		cli, err := onedrive.New()
-		if err != nil {
-			glog.Exit(err)
-		}
 		if err := cli.Download(args[1:]...); err != nil {
 			glog.Exit(err)
+		}
+	case "del":
+		for _, id := range args[1:] {
+			if err := cli.DeleteByID(id); err != nil {
+				glog.Warning(err)
+			}
 		}
 	default:
 		usage()

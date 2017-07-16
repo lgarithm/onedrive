@@ -191,6 +191,25 @@ func (c Client) downloadByID(id string, localfile string) error {
 	return err
 }
 
+// DeleteByID implements https://dev.onedrive.com/items/delete.htm
+func (c Client) DeleteByID(id string) error {
+	u := c.endpoint
+	u.Path += path.Join("/items", id)
+	req, err := http.NewRequest("DELETE", u.String(), nil)
+	if err != nil {
+		return err
+	}
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		return errors.New(res.Status)
+	}
+	return nil
+}
+
 // List implements https://dev.onedrive.com/items/list.htm
 func (c Client) List(dirs ...string) ([]Item, string, error) {
 	u := c.endpoint
