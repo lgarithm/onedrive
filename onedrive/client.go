@@ -74,22 +74,9 @@ func (c Client) Download(itemPath ...string) error {
 			u.Path += "/" + p
 		}
 	}
-	res, err := c.client.Get(u.String())
-	if err != nil {
-		return fmt.Errorf("Failed to get Item meta data: %v", err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s", res.Status)
-	}
-	bs, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
 	var item Item
-	if err := json.Unmarshal(bs, &item); err != nil {
+	if err := c.GetJSON(u.String(), &item); err != nil {
 		return err
-
 	}
 	if item.File == nil {
 		return fmt.Errorf("NOT a file")
@@ -217,24 +204,24 @@ func (c Client) List(dirs ...string) ([]Item, string, error) {
 		ps = append(ps, "children")
 		u.Path += path.Join(ps...)
 	}
-	glog.Infof("list path: %q", u.Path)
-	res, err := c.client.Get(u.String())
-	if err != nil {
-		glog.Errorf("Failed to ListDrivers: %v", err)
-		return nil, "", err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, "", errors.New(res.Status)
-	}
-	var result struct {
-		Value    []Item `json:"value"`
-		NextLink string `json:"@odata.nextLink"`
-	}
-	if err := readJSON(res.Body, &result); err != nil {
+	var result ListItemResult
+	if err := c.GetJSON(u.String(), &result); err != nil {
 		return nil, "", err
 	}
 	return result.Value, result.NextLink, nil
+}
+
+// GetJSON gets a JSON object from rawurl
+func (c Client) GetJSON(rawurl string, i interface{}) error {
+	res, err := c.client.Get(rawurl)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return errors.New(res.Status)
+	}
+	return readJSON(res.Body, i)
 }
 
 func readJSON(r io.Reader, i interface{}) error {

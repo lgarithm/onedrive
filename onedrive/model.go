@@ -27,6 +27,11 @@ func (i Item) String() string {
 	return string(bs)
 }
 
+type ListItemResult struct {
+	Value    []Item `json:"value"`
+	NextLink string `json:"@odata.nextLink"`
+}
+
 type UploadSession struct {
 	NextExpectedRanges []string `json:"nextExpectedRanges"`
 	UploadURL          string   `json:"uploadUrl"`

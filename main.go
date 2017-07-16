@@ -14,6 +14,7 @@ var (
 	clientID     = flag.String("client_id", "", "")
 	clientSecret = flag.String("client_secret", "", "")
 
+	all        = flag.Bool("all", false, "list all")
 	remotePath = flag.String("path", "upload", "remote folder")
 )
 
@@ -57,17 +58,34 @@ func main() {
 		if err != nil {
 			glog.Exit(err)
 		}
+		const format = "%-20s %-16s %-48s %s\n"
+		fmt.Printf(format, "ID", "Size", "URL", "Name")
+		showItems := func(is []onedrive.Item) {
+			for _, i := range is {
+				fmt.Printf(format, i.ID, showSize(i.Size), i.URL, i.Name)
+			}
+		}
 		is, nextLink, err := cli.List(args[1:]...)
 		if err != nil {
 			glog.Exit(err)
 		}
-		const format = "%-20s %-16s %-48s %s\n"
-		fmt.Printf(format, "id", "size", "url", "name")
-		for _, i := range is {
-			fmt.Printf(format, i.ID, showSize(i.Size), i.URL, i.Name)
-		}
+		showItems(is)
 		if nextLink != "" {
-			fmt.Printf("%s\n", nextLink)
+			if !*all {
+				fmt.Printf("next link: %s\n", nextLink)
+			} else {
+				for {
+					var result onedrive.ListItemResult
+					if err := cli.GetJSON(nextLink, &result); err != nil {
+						glog.Exit(err)
+					}
+					showItems(result.Value)
+					if result.NextLink == "" {
+						break
+					}
+					nextLink = result.NextLink
+				}
+			}
 		}
 	case "download":
 		cli, err := onedrive.New()
