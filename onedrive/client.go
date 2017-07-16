@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -114,15 +115,12 @@ func (c Client) simpleUpload(localfile string, dirs ...string) (*Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	bs, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("%s\n%s", res.Status, string(bs))
+		return nil, errors.New(res.Status)
 	}
 	var item Item
-	if err := json.Unmarshal(bs, &item); err != nil {
+	if err := readJSON(res.Body, &item); err != nil {
 		return nil, err
 	}
 	return &item, nil
@@ -200,14 +198,14 @@ func (c Client) downloadByID(id string, localfile string) error {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("Invalid Status: %s", res.Status)
+		return errors.New(res.Status)
 	}
 	_, err = io.Copy(f, res.Body)
 	return err
 }
 
-// List lists items
-func (c Client) List(dirs ...string) ([]Item, error) {
+// List implements https://dev.onedrive.com/items/list.htm
+func (c Client) List(dirs ...string) ([]Item, string, error) {
 	u := c.endpoint
 	if len(dirs) == 0 {
 		u.Path += "/root/children"
@@ -223,22 +221,26 @@ func (c Client) List(dirs ...string) ([]Item, error) {
 	res, err := c.client.Get(u.String())
 	if err != nil {
 		glog.Errorf("Failed to ListDrivers: %v", err)
-		return nil, err
+		return nil, "", err
 	}
 	defer res.Body.Close()
-	bs, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		glog.Errorf("Failed to ListDrivers: %v", err)
-		return nil, err
-	}
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s\n%s", res.Status, string(bs))
+		return nil, "", errors.New(res.Status)
 	}
 	var result struct {
-		Value []Item `json:"value"`
+		Value    []Item `json:"value"`
+		NextLink string `json:"@odata.nextLink"`
 	}
-	if err := json.Unmarshal(bs, &result); err != nil {
-		return nil, err
+	if err := readJSON(res.Body, &result); err != nil {
+		return nil, "", err
 	}
-	return result.Value, err
+	return result.Value, result.NextLink, nil
+}
+
+func readJSON(r io.Reader, i interface{}) error {
+	bs, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bs, i)
 }

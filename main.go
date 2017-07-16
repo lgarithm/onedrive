@@ -57,7 +57,7 @@ func main() {
 		if err != nil {
 			glog.Exit(err)
 		}
-		is, err := cli.List(args[1:]...)
+		is, nextLink, err := cli.List(args[1:]...)
 		if err != nil {
 			glog.Exit(err)
 		}
@@ -65,6 +65,9 @@ func main() {
 		fmt.Printf(format, "id", "size", "url", "name")
 		for _, i := range is {
 			fmt.Printf(format, i.ID, showSize(i.Size), i.URL, i.Name)
+		}
+		if nextLink != "" {
+			fmt.Printf("%s\n", nextLink)
 		}
 	case "download":
 		cli, err := onedrive.New()
