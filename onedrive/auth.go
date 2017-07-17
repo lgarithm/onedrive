@@ -2,80 +2,32 @@ package onedrive
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 
 	"github.com/golang/glog"
 )
 
-const (
-	authURL     = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`
-	tokenURL    = `https://login.microsoftonline.com/common/oauth2/v2.0/token`
-	redirectURI = `http://localhost:4869/`
-
-	scopeReadWriteAll  = `files.readwrite.all`
-	scopeOfflineAccess = `offline_access`
-)
-
-var (
-	scopes = []string{scopeReadWriteAll, scopeOfflineAccess}
-)
-
 func Auth() {
-	c, err := loadConfig()
+	config, err := loadConfig()
 	if err != nil {
 		glog.Exitf("Failed to load config: %v", err)
 	}
-	q := url.Values{}
-	q.Set("client_id", c.ClientID)
-	q.Set("redirect_uri", redirectURI)
-	q.Set("response_type", "code")
-	q.Add("scope", strings.Join(scopes, " "))
-	u, _ := url.Parse(authURL)
-	u.RawQuery = q.Encode()
-	fmt.Printf("%s\n", u.String())
-	{
-		u, _ := url.Parse(redirectURI)
-		http.HandleFunc("/", c.authAction)
-		http.ListenAndServe(u.Host, nil)
-	}
-}
-
-func (c *Config) authAction(w http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
-	for k, vs := range req.Header {
-		for _, v := range vs {
-			fmt.Printf("%s: %s\n", k, v)
+	fmt.Printf("%s\n", config.AuthCodeURL(""))
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		token, err := config.Exchange(context.TODO(), req.FormValue("code"))
+		if err != nil {
+			glog.Exit(err)
 		}
-	}
-	code := req.FormValue("code")
-	fmt.Println(code)
-	if err := getAcceccToken(c, code); err != nil {
-		return
-	}
-	fmt.Fprintf(w, "DONE")
-	os.Exit(0)
-}
-
-func getAcceccToken(c *Config, code string) error {
-	q := url.Values{}
-	q.Set("client_id", c.ClientID)
-	q.Set("client_secret", c.ClientSecret)
-	q.Set("redirect_uri", redirectURI)
-	q.Set("grant_type", "authorization_code")
-	q.Set("code", code)
-	res, bs, err := postQuery(tokenURL, q)
-	if err != nil {
-		return err
-	}
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s\n%s", res.Status, string(bs))
-	}
-	return SaveToken(bs)
+		SaveToken(*token)
+		os.Exit(0)
+	})
+	u, _ := url.Parse(config.RedirectURL)
+	http.ListenAndServe(u.Host, nil)
 }
 
 func RefreshAcceccToken() error {
@@ -84,36 +36,35 @@ func RefreshAcceccToken() error {
 		return err
 	}
 	q := url.Values{}
-	c, err := loadConfig()
+	config, err := loadConfig()
 	if err != nil {
 		return fmt.Errorf("Failed to load config: %v", err)
 	}
-	q.Set("client_id", c.ClientID)
-	q.Set("client_secret", c.ClientSecret)
-	q.Set("redirect_uri", redirectURI)
+	q.Set("client_id", config.ClientID)
+	q.Set("client_secret", config.ClientSecret)
+	q.Set("redirect_uri", config.RedirectURL)
 	q.Set("grant_type", "refresh_token")
 	q.Set("refresh_token", token.RefreshToken)
-	res, bs, err := postQuery(tokenURL, q)
+	res, err := postQuery(config.Endpoint.TokenURL, q)
 	if err != nil {
 		return err
 	}
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s\n%s", res.Status, string(bs))
+	defer res.Body.Close()
+	if err := readJSON(res.Body, &token); err != nil {
+		return err
 	}
-	return SaveToken(bs)
+	return SaveToken(*token)
 }
 
-func postQuery(api string, query url.Values) (*http.Response, []byte, error) {
+func postQuery(api string, query url.Values) (*http.Response, error) {
 	body := &bytes.Buffer{}
 	body.Write([]byte(query.Encode()))
 	res, err := http.DefaultClient.Post(api, `application/x-www-form-urlencoded`, body)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	defer res.Body.Close()
-	bs, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, nil, err
+	if res.StatusCode != http.StatusOK {
+		return res, errors.New(res.Status)
 	}
-	return res, bs, nil
+	return res, nil
 }

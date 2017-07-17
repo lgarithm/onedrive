@@ -20,21 +20,26 @@ func loadToken() (*oauth2.Token, error) {
 		return nil, err
 	}
 	var tokenExpiry struct {
-		Seconds int `json:"expires_in"`
+		Seconds int    `json:"expires_in"`
+		Expiry  string `json:"expiry"`
 	}
 	if err := json.Unmarshal(bs, &tokenExpiry); err == nil {
-		if info, err := os.Stat(tokenFile()); err == nil {
-			const margin = 60
-			token.Expiry = info.ModTime().Add(time.Duration(tokenExpiry.Seconds-margin) * time.Second)
+		if tokenExpiry.Expiry != "" {
+			// TODO: parse tokenExpiry.Expiry
+		} else if tokenExpiry.Seconds != 0 {
+			if info, err := os.Stat(tokenFile()); err == nil {
+				const margin = 60
+				token.Expiry = info.ModTime().Add(time.Duration(tokenExpiry.Seconds-margin) * time.Second)
+			}
 		}
 	}
 	return &token, nil
 }
 
-// SaveToken saves token file to default location
-func SaveToken(bs []byte) error {
-	var token oauth2.Token
-	if err := json.Unmarshal(bs, &token); err != nil {
+// SaveToken saves oauth2.Token to default location
+func SaveToken(token oauth2.Token) error {
+	bs, err := json.Marshal(token)
+	if err != nil {
 		return err
 	}
 	filename := tokenFile()

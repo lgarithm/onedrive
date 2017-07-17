@@ -7,13 +7,36 @@ import (
 	"path"
 
 	"github.com/golang/glog"
+	"golang.org/x/oauth2"
 )
 
+// Config is a subset of oauth2.Config
 type Config struct {
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 }
 
+func (c Config) toOauthConfig() oauth2.Config {
+	const (
+		authURL            = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`
+		tokenURL           = `https://login.microsoftonline.com/common/oauth2/v2.0/token`
+		redirectURL        = `http://localhost:4869/`
+		scopeReadWriteAll  = `files.readwrite.all`
+		scopeOfflineAccess = `offline_access`
+	)
+	return oauth2.Config{
+		ClientID:     c.ClientID,
+		ClientSecret: c.ClientSecret,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  authURL,
+			TokenURL: tokenURL,
+		},
+		RedirectURL: redirectURL,
+		Scopes:      []string{scopeReadWriteAll, scopeOfflineAccess},
+	}
+}
+
+// CreateConfig creates Config file at default location
 func CreateConfig(clientID, clientSecret string) {
 	if clientID == "" {
 		glog.Exit("-client_id is required.")
@@ -34,7 +57,7 @@ func CreateConfig(clientID, clientSecret string) {
 	}
 }
 
-func loadConfig() (*Config, error) {
+func loadConfig() (*oauth2.Config, error) {
 	bs, err := ioutil.ReadFile(configFile())
 	if err != nil {
 		return nil, err
@@ -43,7 +66,8 @@ func loadConfig() (*Config, error) {
 	if err := json.Unmarshal(bs, &c); err != nil {
 		return nil, err
 	}
-	return &c, nil
+	config := c.toOauthConfig()
+	return &config, nil
 }
 
 // SaveConfig saves config file to default location
