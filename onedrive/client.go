@@ -64,8 +64,34 @@ func (c Client) Upload(localfile string, dirs ...string) (*Item, error) {
 	return c.simpleUpload(localfile, dirs...)
 }
 
+// GetFile gets a file as bytes
+func (c Client) GetFile(itemPath ...string) ([]byte, error) {
+	item, err := c.getFileItem(itemPath...)
+	if err != nil {
+		return nil, err
+	}
+	b := &bytes.Buffer{}
+	if err := c.downloadByID(item.ID, b); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
 // Download downloads a file
 func (c Client) Download(itemPath ...string) error {
+	item, err := c.getFileItem(itemPath...)
+	if err != nil {
+		return err
+	}
+	w, err := os.Create(item.Name)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	return c.downloadByID(item.ID, w)
+}
+
+func (c Client) getItem(itemPath ...string) (*Item, error) {
 	// GET /drive/root:/{item-path}
 	u := c.endpoint
 	{
@@ -76,12 +102,20 @@ func (c Client) Download(itemPath ...string) error {
 	}
 	var item Item
 	if err := c.GetJSON(u.String(), &item); err != nil {
-		return err
+		return nil, err
+	}
+	return &item, nil
+}
+
+func (c Client) getFileItem(itemPath ...string) (*Item, error) {
+	item, err := c.getItem(itemPath...)
+	if err != nil {
+		return nil, err
 	}
 	if item.File == nil {
-		return fmt.Errorf("NOT a file")
+		return nil, fmt.Errorf("NOT a file")
 	}
-	return c.downloadByID(item.ID, item.Name)
+	return item, nil
 }
 
 // https://dev.onedrive.com/items/upload_put.htm
@@ -171,11 +205,7 @@ func (c Client) uploadFile(localfile string) error {
 }
 
 // https://dev.onedrive.com/items/download.htm#http-request
-func (c Client) downloadByID(id string, localfile string) error {
-	f, err := os.Create(localfile)
-	if err != nil {
-		return err
-	}
+func (c Client) downloadByID(id string, w io.Writer) error {
 	// GET /drive/items/{item-id}/content
 	u := c.endpoint
 	u.Path += fmt.Sprintf("/items/%s/content", id)
@@ -187,7 +217,7 @@ func (c Client) downloadByID(id string, localfile string) error {
 	if res.StatusCode != http.StatusOK {
 		return errors.New(res.Status)
 	}
-	_, err = io.Copy(f, res.Body)
+	_, err = io.Copy(w, res.Body)
 	return err
 }
 
