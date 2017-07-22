@@ -51,17 +51,34 @@ func New() (*Client, error) {
 	return &c, nil
 }
 
+// https://dev.onedrive.com/items/upload_put.htm
+const simpleUploadLimit = 4 * 1024 * 1024
+
 // Upload uploads a file
 func (c Client) Upload(localfile string, dirs ...string) (*Item, error) {
-	const limit = 4 * 1024 * 1024
 	info, err := os.Stat(localfile)
 	if err != nil {
 		return nil, err
 	}
-	if info.Size() > limit {
-		return nil, fmt.Errorf("TODO: support session upload")
+	if info.Size() <= simpleUploadLimit {
+		lf, err := os.Open(localfile)
+		if err != nil {
+			return nil, err
+		}
+		defer lf.Close()
+		return c.simpleUpload(path.Base(localfile), lf, dirs...)
 	}
-	return c.simpleUpload(localfile, dirs...)
+	return nil, fmt.Errorf("TODO: support session upload")
+}
+
+// UploadBytes uploads a file from bytes
+func (c Client) UploadBytes(name string, bs []byte, dirs ...string) (*Item, error) {
+	if len(bs) <= simpleUploadLimit {
+		body := &bytes.Buffer{}
+		body.Write(bs)
+		return c.simpleUpload(name, body, dirs...)
+	}
+	return nil, fmt.Errorf("TODO: support session upload")
 }
 
 // GetFile gets a file as bytes
@@ -119,17 +136,10 @@ func (c Client) getFileItem(itemPath ...string) (*Item, error) {
 }
 
 // https://dev.onedrive.com/items/upload_put.htm
-func (c Client) simpleUpload(localfile string, dirs ...string) (*Item, error) {
-	lf, err := os.Open(localfile)
-	if err != nil {
-		return nil, err
-	}
-	name := path.Base(localfile)
+func (c Client) simpleUpload(name string, body io.Reader, dirs ...string) (*Item, error) {
 	u := c.endpoint
 	// PUT /drive/root:/{parent-path}/{filename}:/content
 	u.Path += path.Join("/root:", strings.Join(dirs, "/"), name+":", "content")
-	body := &bytes.Buffer{}
-	io.Copy(body, lf)
 	req, err := http.NewRequest("PUT", u.String(), body)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	res, err := c.client.Do(req)
